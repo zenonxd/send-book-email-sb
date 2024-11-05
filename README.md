@@ -118,3 +118,24 @@ public class UserBookLoan {
     private Date loanDate;
 }
 ```
+
+# Configuração DataSources
+
+Recapitulando.
+
+Teremos a nossa aplicação que alocará os metadados para o banco de dados spring_batch (criado no phpMyAdmin).
+
+Agora, os dados advindos do Job iremos alocar no banco library.
+
+## application.properties
+
+![img_2.png](img_2.png)
+
+## Classe DataSourceConfig
+
+![img_3.png](img_3.png)
+
+
+
+
+# Configurando Job e Step
