@@ -18,9 +18,7 @@ SendGrid (envio de email transacional).
 
 Usaremos o exemplo de uma livraria.
 
-Teremos table de User, Book e de empréstimos de livros para usuário:
-
--insirir seedDataBase sql-
+Teremos table de User, Book e de empréstimos de livros para usuário.
 
 # Regra de negócio
 
@@ -39,3 +37,84 @@ Reader: ler usuários que tem empréstimos próximo do retorno (numero de dias p
 Processing: gerar mensagem do email (template)
 
 Writing: enviar o email notificando o retorno
+
+# Resources
+
+[Clique aqui](https://github.com/devsuperior/send-book-email-spring-batch?tab=readme-ov-file#resources)
+
+# Criação Banco de Dados
+
+Inserir o ``DockerCompose.yaml`` na pasta para criar o ambiente.
+
+Ele conterá o MySQL e o phpMyAdmin.
+
+Crie os bancos necessários:
+
+1. Banco para salvar metadados Spring Batch, chamará: **spring_batch**
+2. Banco para salvar as tabelas criadas (user, book, user_book_loan), chamará: **library**
+
+Use o script do import.sql para dar o creat no phpMyAdmin.
+
+![img.png](img.png)
+
+Depois, insira os dados. ❗Importante, no user coloque o email que você irá utilizar.
+
+Além disso, se atente as datas do spring, visto que esse projeto foi elaborado em fevereiro de 2023.
+
+![img_1.png](img_1.png)
+
+# Criando classes domínio
+
+Crie uma classe ``import.sql`` e jogue o seed todo lá para deixar salvo e documentado.
+
+## User
+
+```java
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
+@Setter
+@ToString
+public class User {
+
+    private int id;
+    private String name;
+    private String email;
+
+}
+```
+
+## Book
+
+```java
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
+@Setter
+@ToString
+public class Book {
+    
+    private Integer id;
+    private String name;
+    private String description;
+    private String author;
+    private String category;
+
+}
+```
+
+## UserBook Loan
+
+```java
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
+@Setter
+@ToString
+public class UserBookLoan {
+
+    private User user;
+    private Book book;
+    private Date loanDate;
+}
+```
