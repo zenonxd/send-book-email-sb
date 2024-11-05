@@ -139,3 +139,122 @@ Agora, os dados advindos do Job iremos alocar no banco library.
 
 
 # Configurando Job e Step
+
+Recapitulando: queremos criar um Job responsável por fazer enviar automaticamente usando o Spring Batch.
+
+Ele notificará sobre empréstimo determinado usuário.
+
+## Job
+
+Os nomes precisam ser autoexplicativos, lembra?
+
+```java
+@Configuration
+public class SendBookLoanNotificationJobConfig {
+
+    @Bean
+    public Job SendBookLoanNotificationJob(Step sendEmailUserStep, JobRepository jobRepository) {
+        return new JobBuilder("SendBookLoanNotificationJob", jobRepository)
+                .start(sendEmailUserStep)
+                .incrementer(new RunIdIncrementer())
+                .build();
+    }
+}
+```
+
+## Step
+
+O que o step deve fazer? Enviar o email para o usuário.
+
+❗Este código irá mudar.
+
+Criaremos o PlatformTransactionManager, passando o Qualifier do DataSourceConfig.
+
+O chunk receberá um UserBookLoan e ❗❗POR ENQUANTO retornará o mesmo, demais será um email.
+
+E já começamos passando o ItemReader, também do tipo UserBookLoan.
+
+```java
+@Configuration
+public class sendEmailUserStepConfig {
+
+    private int chunkSize;
+
+    @Autowired
+    @Qualifier("transactionManagerApp")
+    private PlatformTransactionManager platformTransactionManager;
+
+    @Bean
+    public Step sendEmailUserStep(ItemReader<UserBookLoan> readUsersWithLoansCloseToReturnReader,
+            JobRepository jobRepository) {
+        return new StepBuilder("sendEmailUserStep", jobRepository)
+                .<UserBookLoan, UserBookLoan>chunk(1, platformTransactionManager)
+                .reader(readUsersWithLoansCloseToReturnReader)
+                .build();
+    }
+}
+```
+
+### ItemReader
+
+Como vimos ali em cima, o ItemReader deve:
+
+Ler usuários que tem empréstimos próximo do retorno (numero de dias para retornar - 1 dia)
+
+O nome será: ``readUsersWithLoansCloseToReturnReaderConfig``
+
+Inicialmente, criaremos um método para a classe que irá receber como parâmetro o data source. Usaremos o banco de dados
+library. Este método, retornará um ItemReader do tipo UserBookLoan.
+
+Quando gostaríamos de obter dados do banco de dados, existe uma classe que extende o ItemReader, ela se chama: 
+``JdbcCursorItemReaderBuilder``.
+
+```java
+```
+
+#### rowMapper()
+
+Vamos utilizar ele para obter os dados e atributos (através da consulta SQL), e passaremos ele para nossos objetos que 
+criamos no nosso domínio (User, Book, UserBookLoan).
+
+Criamos o método e passamos nele: ``return new RowMapper<UserBookLoan>()``. Clicamos e implementamos o método ``mapRow``.
+
+MapRow = correspondência da linha.
+
+Ou seja, leremos linha a linha e obter os valores dos atributos correspondentes. 
+
+![img_4.png](img_4.png)
+
+Para obter esses campos com mais facilidade, defina um ALIAS na consulta SQL, veja:
+
+![img_5.png](img_5.png)
+
+#### Método
+
+```java
+    private RowMapper<UserBookLoan> rowMapper() {
+    //criando esse metodo, ele ira pedir para implementar
+    //o mapRow abaixo
+        return new RowMapper<UserBookLoan>() {
+
+            @Override
+            public UserBookLoan mapRow(ResultSet rs, int rowNum) throws SQLException {
+                //pegando id, name e email
+                User user = new User(
+                        rs.getInt("user_id"),
+                        rs.getString("user_name"),
+                        rs.getString("user_email")
+                );
+
+                Book book = new Book();
+                book.setId(rs.getInt("book_id"));
+                book.setName(rs.getString("book_name"));
+
+                UserBookLoan userBookLoan = new UserBookLoan(user, book, rs.getDate("loan_date"));
+
+                return userBookLoan;
+            }
+        };
+    }
+```
+
