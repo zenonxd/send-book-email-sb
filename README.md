@@ -417,4 +417,108 @@ public final class GenerateBookReturnDate {
 
 Qual a ideia do ItemWritter? Queremos que ele envie um email solicitando o retorno dos livros para o User.
 
-Portanto, se chamará: ``sendEmailRequestReturnWritterConfig``
+Portanto, se chamará: ``sendEmailRequestReturnWritterConfig``.
+
+Vamos criar o nosso método ``sendEmailRequestReturnWritterConfig``, que retornará um ``ItemWriter<Mail>``.
+
+Precisamos criar um método para realizar o envio de email, [clique aqui](https://github.com/devsuperior/send-book-email-spring-batch?tab=readme-ov-file#method-to-send-email-writer-step)
+
+Este método ficará dentro da classe do Writter, depois do método que criamos do Bean.
+
+#### Variável de ambiente
+
+Logue no sendGrid, obtenha o valor da chave e coloque como variável de ambiente na IDE (não é no app.properties), e sim
+na variável de ambiente.
+
+``spring.sendgrid.api-key=KEY_SENDGRID``
+
+Com isso, ao rodar a aplicação, o email será enviado.
+
+#### Agendando envio de email com Quartz
+
+Queremos que a execução do nosso Job seja agendada, e usaremos o Quartz juntamente com o Spring Batch, configurando
+a periodicidade do envio de emails.
+
+Como o JobLauncher é responsável pela execução do nosso Job, criaremos um ``JobLauncher`` no pacote ``job``. A classe
+irá se chamar ``SendBookLoanNotificationScheduleJob``. Utilize o código abaixo:
+
+```java
+@Configuration
+public class SendBookLoanNotificationScheduleJob extends QuartzJobBean {
+	
+	@Autowired
+	private Job job;
+	
+	@Autowired
+	private JobExplorer jobExplorer;
+	
+	@Autowired
+	private JobLauncher jobLaucher;
+
+	@Override
+	protected void executeInternal(JobExecutionContext context) throws JobExecutionException {
+		JobParameters jobParameters = new JobParametersBuilder(this.jobExplorer).getNextJobParameters(this.job).toJobParameters();
+		try {
+			this.jobLaucher.run(this.job, jobParameters);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+}
+```
+
+Importe agora a dependência do Quartz.
+
+#### Dependência Quartz
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-quartz</artifactId>
+</dependency>
+```
+
+#### Colocando o Job criado como primário
+
+Para o spring saber que queremos executar esse JobLaucher, precisamos configurar no ``application.properties``.
+
+```properties
+spring.batch.job.enabled=false
+```
+
+#### Configurando Quartz
+
+Crie no pacote config a classe ``QuartzConfig``.
+
+Importe tudo do ``Org.quartz``.
+
+```java
+@Configuration
+public class QuartzConfig {
+
+    @Bean
+    public JobDetail quartzJobDetail() {
+        return JobBuilder.newJob(SendBookLoanNotificationScheduleJob.class).storeDurably().build();
+    }
+
+    @Bean
+    public Trigger jobTrigger() {
+        // 51 18 = 18:51
+        //qualquer coisa pesquise sobre cron expressions
+
+        String exp = "0 51 18 * * ?";
+        return TriggerBuilder
+                .newTrigger()
+                .forJob(quartzJobDetail())
+                .startNow()
+                .withSchedule(CronScheduleBuilder.cronSchedule(exp))
+                .build();
+    }
+}
+```
+
+
+
+
+
