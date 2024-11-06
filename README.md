@@ -209,15 +209,46 @@ library. Este método, retornará um ItemReader do tipo UserBookLoan.
 Quando gostaríamos de obter dados do banco de dados, existe uma classe que extende o ItemReader, ela se chama: 
 ``JdbcCursorItemReaderBuilder``.
 
+#### Como o método ficará inicialmente:
+
 ```java
+    @Bean
+    public ItemReader<UserBookLoan> readUsersWithLoansCloseToReturnReader(@Qualifier("appDS")DataSource dataSource) {
+        return new JdbcCursorItemReaderBuilder<UserBookLoan>()
+}
+```
+
+#### Método pronto
+
+```java
+    @Bean
+    public ItemReader<UserBookLoan> readUsersWithLoansCloseToReturnReader(@Qualifier("appDS")DataSource dataSource) {
+        return new JdbcCursorItemReaderBuilder<UserBookLoan>()
+                //mesmo nome do metodo
+                .name("readUsersWithLoansCloseToReturnReader")
+                .dataSource(dataSource)
+                .sql("SELECT user.id as user_id " +
+                        "user.name as user_name, " +
+                        "user.email as user_email, " +
+                        "book.id as book_id, " +
+                        "book.name as book_name, " +
+                        "loan.loan_date " +
+                        "FROM tb_user_book_loan as loan " +
+                        "INNER JOIN tb_user as user ON loan.user_id = user.id " +
+                        "INNER JOIN tb_book as book ON loan.book_id = book.id " +
+                        "WHERE DATE_ADD(loan_date, INTERVAL " + numDaysToNofityReturn + " DAY) = DATE(NOW());")
+                .rowMapper(rowMapper())
+                .build();
+    }
 ```
 
 #### rowMapper()
 
-Vamos utilizar ele para obter os dados e atributos (através da consulta SQL), e passaremos ele para nossos objetos que 
-criamos no nosso domínio (User, Book, UserBookLoan).
+Vamos utilizar ele para obter os dados e atributos (através da consulta SQL), e passaremos estes dados para nossos 
+objetos que criamos no nosso domínio (User, Book, UserBookLoan).
 
-Criamos o método e passamos nele: ``return new RowMapper<UserBookLoan>()``. Clicamos e implementamos o método ``mapRow``.
+Criamos o método e passamos nele: ``return new RowMapper<UserBookLoan>()``. Depois clicamos e implementamos o 
+método ``mapRow``.
 
 MapRow = correspondência da linha.
 
@@ -258,3 +289,132 @@ Para obter esses campos com mais facilidade, defina um ALIAS na consulta SQL, ve
     }
 ```
 
+### ItemProcessor
+
+Na etapa de processamento, precisamos realizar a lógica de envio de email (utilizando um template).
+
+Adicione a dependência do SendGrid para envio de email.
+
+```xml
+<dependency>
+    <groupId>com.sendgrid</groupId>
+    <artifactId>sendgrid-java</artifactId>
+</dependency>
+```
+
+Volte para o nosso Step, e insira o ``ItemProcessor<UserBookLoan, Mail>`` se chamará ``processLoanNotificationEmailProcessor``.
+
+![img_6.png](img_6.png)
+
+Esse "Mail" do parâmetro, é da dependência SendGrid.
+
+#### processLoanNotificationEmailProcessorConfig
+
+Crie o método e insira o construtor e implemente o método process! Ficará assim:
+
+```java
+@Configuration
+public class processLoanNotificationEmailProcessorConfig {
+
+    @Bean
+    public ItemProcessor<UserBookLoan, Mail> processLoanNotificationEmailProcessor() {
+        return new ItemProcessor<UserBookLoan, Mail>() {
+            @Override
+            public Mail process(UserBookLoan loan) throws Exception {
+                return null;
+            }
+        }
+    }
+}
+```
+
+Esse process ele recebe cada item do ``UserBookLoan`` (todos os dados do empréstimo) e retorna um ``Mail``. Ou seja,
+um objeto pronto para ser enviado.
+
+#### Método final
+
+![img_7.png](img_7.png)
+
+#### Template Email
+
+Ele vai receber um UserBookLoan e com um StringBuilder, irá construir a mensagem.
+
+```java
+private String generateEmailText(UserBookLoan loan) {		
+    StringBuilder writer = new StringBuilder();
+    writer.append(String.format("Prezado(a), %s, matricula %d\n", loan.getUser().getName(), loan.getUser().getId()));
+    writer.append(String.format("Informamos que o prazo de devolução do livro %s é amanhã (%s) \n", loan.getBook().getName(), GenerateBookReturnDate.getDate(loan.getLoan_date())));
+    writer.append("Solicitamos que você renove o livro ou devolva, assim que possível.\n");
+    writer.append("A Biblioteca Municipal está funcionando de segunda a sexta, das 9h às 17h.\n\n");
+    writer.append("Atenciosamente,\n");
+    writer.append("Setor de empréstimo e devolução\n");
+    writer.append("BIBLIOTECA MUNICIPAL");
+    return writer.toString();
+}
+```
+
+Precisamos agora criar uma classe utilitária para obter a data de devolução em String (veja o "GenerateBookReturnDate") 
+do método do generateEmail.
+
+#### Criando classe utilitária para obter data - GenerateBookReturnDate
+
+Essa classe será responsável por obter a data de empréstimo no formato String.
+
+A ideia é que a gente a acesse da forma que está lá no método. Chamando: o seu nome "ponto", o método que queremos 
+implementar.
+
+Para isso ela será uma classe constante, ou seja, "public final class".
+
+Precisamos começar definindo as regras de negócio.
+
+Iremos definir o número de dias para devolução do livro no início.
+
+Depois, criamos o método getDate, toda a explicação do código está ali embaixo.
+
+
+```java
+public final class GenerateBookReturnDate {
+
+    public static int numDaysToReturnBook = 7;
+
+    //definindo dada formato DD-MM-YYYY
+    private static DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+
+    // pega a data formatada do emprestimo do livro
+    public static String getDate(Date loan_Date) {
+        Calendar calendar = dateToCalendar(loan_Date);
+
+        //adicionaremos o número de dia (7 dias) para devolução do livro
+        calendar.add(Calendar.DATE, numDaysToReturnBook);
+
+        //e agora converte para String, mas precisamos criar outro metodo
+        //para converter de calender para date,
+        // pois o dateFormat precisa receber um Date (atualmente está Calendar)!
+        String result = dateFormat.format(calendarToDate(calendar));
+        return result;
+    }
+
+    //metodo para converter de Calendar pra Date, pois é o que o dateFormat precisa
+    //para que possamos retornar uma String
+    private static Date calendarToDate(Calendar calendar) {
+        return calendar.getTime();
+    }
+
+    //converts Date do Calendar
+    private static Calendar dateToCalendar(Date loanDate) {
+
+        //instancia o calender com getInstance
+        Calendar calendar = Calendar.getInstance();
+        //e converte
+        calendar.setTime(loanDate);
+        return calendar;
+    }
+
+}
+```
+
+### ItemWritter - Envio de email
+
+Qual a ideia do ItemWritter? Queremos que ele envie um email solicitando o retorno dos livros para o User.
+
+Portanto, se chamará: ``sendEmailRequestReturnWritterConfig``

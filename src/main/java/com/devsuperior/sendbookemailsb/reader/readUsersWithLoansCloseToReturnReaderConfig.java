@@ -3,6 +3,7 @@ package com.devsuperior.sendbookemailsb.reader;
 import com.devsuperior.sendbookemailsb.domain.Book;
 import com.devsuperior.sendbookemailsb.domain.User;
 import com.devsuperior.sendbookemailsb.domain.UserBookLoan;
+import com.devsuperior.sendbookemailsb.util.GenerateBookReturnDate;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.NonTransientResourceException;
 import org.springframework.batch.item.ParseException;
@@ -21,7 +22,7 @@ import java.sql.SQLException;
 @Configuration
 public class readUsersWithLoansCloseToReturnReaderConfig implements ItemReader<UserBookLoan> {
 
-    int numDaysToNofityReturn = 6;
+    int numDaysToNofityReturn = GenerateBookReturnDate.numDaysToReturnBook - 1;
 
 
     @Override
@@ -35,7 +36,7 @@ public class readUsersWithLoansCloseToReturnReaderConfig implements ItemReader<U
                 //mesmo nome do metodo
                 .name("readUsersWithLoansCloseToReturnReader")
                 .dataSource(dataSource)
-                .sql("SELECT user.id as user_id " +
+                .sql("SELECT user.id as user_id, " +
                         "user.name as user_name, " +
                         "user.email as user_email, " +
                         "book.id as book_id, " +
