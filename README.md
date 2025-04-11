@@ -1,6 +1,3 @@
-<p align="center">
-  <img src="https://img.shields.io/static/v1?label=Spring Essential - Dev Superior&message=Envio Email Spring Batch&color=8257E5&labelColor=000000" alt="estudo envio de email spring batch" />
-</p>
 
 # Objetivo
 
@@ -12,7 +9,7 @@ Usaremos:
 
 SendGrid (envio de email transacional).
 
-[Github Projeto](https://github.com/devsuperior/send-book-email-spring-batch)
+
 
 # Modelo de Dados usado
 
